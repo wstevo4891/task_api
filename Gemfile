@@ -41,6 +41,9 @@ gem "jwt"
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 gem "rack-cors"
 
+# Use Rack Attack for rate limiting
+gem "rack-attack"
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
@@ -54,9 +57,10 @@ group :development, :test do
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
 
+  # Use RSpec for testing
   gem "rspec-rails", "~> 8.0"
 
+  # Use Factory Bot and Faker to generate test data
   gem "factory_bot_rails", "~> 6.5"
-
   gem "faker", "~> 3.8"
 end
