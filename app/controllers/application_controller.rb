@@ -1,4 +1,5 @@
 class ApplicationController < ActionController::API
+  include ErrorHandler
   include ExceptionHandler
 
   # Make current_user available to all controllers
