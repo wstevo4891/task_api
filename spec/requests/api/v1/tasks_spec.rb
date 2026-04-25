@@ -40,6 +40,7 @@ RSpec.describe "Api::V1::Tasks", type: :request do
         title: "Complete project documentation",
         description: "Write comprehensive API docs",
         priority: "high",
+        status: "pending",
         due_date: 1.week.from_now.iso8601
       }
     end
@@ -56,8 +57,8 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     it "returns validation errors for invalid data" do
       post "/api/v1/tasks", params: { title: "" }, headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
-      expect(json["error"]["code"]).to eq("validation_failed")
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json["error"][0]).to eq("Title can't be blank")
     end
   end
 
