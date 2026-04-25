@@ -39,7 +39,7 @@ module ErrorHandler
         message: "Validation failed",
         details: exception.record.errors.messages
       }
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   def handle_parameter_missing(exception)
