@@ -4,6 +4,7 @@ RSpec.describe "Api::V1::Tasks", type: :request do
   let(:user) { create(:user) }
   let(:token) { JsonWebToken.encode(user_id: user.id) }
   let(:headers) { { "Authorization" => "Bearer #{token}" } }
+  let(:json) { JSON.parse(response.body) }
 
   describe "GET /api/v1/tasks" do
     before do
@@ -35,30 +36,57 @@ RSpec.describe "Api::V1::Tasks", type: :request do
   end
 
   describe "POST /api/v1/tasks" do
-    let(:valid_params) do
-      {
-        title: "Complete project documentation",
-        description: "Write comprehensive API docs",
-        priority: "high",
-        status: "pending",
-        due_date: 1.week.from_now.iso8601
-      }
-    end
-
-    it "creates a new task" do
-      expect {
+    context "with valid params" do
+      let(:valid_params) do
+        {
+          title: "Complete project documentation",
+          description: "Write comprehensive API docs",
+          priority: "high",
+          status: "pending",
+          due_date: 1.week.from_now.iso8601
+        }
+      end
+      let(:valid_request) {
         post "/api/v1/tasks", params: valid_params, headers: headers
-      }.to change(Task, :count).by(1)
+      }
 
-      expect(response).to have_http_status(:created)
-      expect(json["task"]["title"]).to eq("Complete project documentation")
+      it "creates a new task" do
+        expect { valid_request }.to change { Task.count }.by(1)
+      end
+
+      describe "the response" do
+        before { valid_request }
+
+        it "has http status: created" do
+          expect(response).to have_http_status(:created)
+        end
+
+        it "has a task with the expected title" do
+          expect(json["task"]["title"]).to eq("Complete project documentation")
+        end
+      end
     end
 
-    it "returns validation errors for invalid data" do
-      post "/api/v1/tasks", params: { title: "" }, headers: headers
+    context "with invalid params" do
+      let(:invalid_request) {
+        post "/api/v1/tasks", params: { title: "" }, headers: headers
+      }
 
-      expect(response).to have_http_status(:unprocessable_content)
-      expect(json["error"][0]).to eq("Title can't be blank")
+      it "does not create a new task" do
+        expect { invalid_request }.not_to change { Task.count }
+      end
+
+      describe "the response" do
+        before { invalid_request }
+
+        it "has http status: unprocessable content" do
+          expect(response).to have_http_status(:unprocessable_content)
+        end
+
+        it "has an error message about the missing title" do
+          expect(json["error"][0]).to eq("Title can't be blank")
+        end
+      end
     end
   end
 
@@ -85,11 +113,5 @@ RSpec.describe "Api::V1::Tasks", type: :request do
 
       expect(response).to have_http_status(:no_content)
     end
-  end
-
-  private
-
-  def json
-    JSON.parse(response.body)
   end
 end
