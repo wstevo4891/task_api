@@ -13,25 +13,44 @@ RSpec.describe "Api::V1::Tasks", type: :request do
       create(:task, user: user, status: :completed)
     end
 
-    it "returns all tasks for the user" do
-      get "/api/v1/tasks", headers: headers
+    context "without filters" do
+      before do
+        get "/api/v1/tasks", headers: headers
+      end
 
-      expect(response).to have_http_status(:ok)
-      expect(json["tasks"].length).to eq(6)
-      expect(json["pagination"]["total_count"]).to eq(6)
+      it "responds with http status: ok" do
+        expect(response).to have_http_status(:ok)
+      end
+
+      it "returns all tasks for the user" do
+        expect(json["tasks"].length).to eq(6)
+      end
+
+      it "responds with the expected pagination count" do
+        expect(json["pagination"]["total_count"]).to eq(6)
+      end
     end
 
-    it "filters by status" do
-      get "/api/v1/tasks", params: { status: "completed" }, headers: headers
+    context "when filtered by status: completed" do
+      before do
+        get "/api/v1/tasks", params: { status: "completed" }, headers: headers
+      end
 
-      expect(response).to have_http_status(:ok)
-      expect(json["tasks"].length).to eq(1)
+      it "responds with http status: ok" do
+        expect(response).to have_http_status(:ok)
+      end
+
+      it "returns one task" do
+        expect(json["tasks"].length).to eq(1)
+      end
     end
 
-    it "returns unauthorized without token" do
-      get "/api/v1/tasks"
+    context "without authorization token" do
+      it "responds with http status: unauthorized" do
+        get "/api/v1/tasks"
 
-      expect(response).to have_http_status(:unauthorized)
+        expect(response).to have_http_status(:unauthorized)
+      end
     end
   end
 
@@ -93,12 +112,17 @@ RSpec.describe "Api::V1::Tasks", type: :request do
   describe "PUT /api/v1/tasks/:id" do
     let(:task) { create(:task, user: user) }
 
-    it "updates the task" do
+    before do
       put "/api/v1/tasks/#{task.id}",
           params: { title: "Updated title" },
           headers: headers
+    end
 
+    it "responds with http status: ok" do
       expect(response).to have_http_status(:ok)
+    end
+
+    it "updates the task" do
       expect(task.reload.title).to eq("Updated title")
     end
   end
@@ -106,11 +130,16 @@ RSpec.describe "Api::V1::Tasks", type: :request do
   describe "DELETE /api/v1/tasks/:id" do
     let!(:task) { create(:task, user: user) }
 
-    it "deletes the task" do
-      expect {
-        delete "/api/v1/tasks/#{task.id}", headers: headers
-      }.to change(Task, :count).by(-1)
+    let(:delete_request) do
+      delete "/api/v1/tasks/#{task.id}", headers: headers
+    end
 
+    it "deletes the task" do
+      expect { delete_request }.to change { Task.count }.by(-1)
+    end
+
+    it "responds with http status: no content" do
+      delete_request
       expect(response).to have_http_status(:no_content)
     end
   end
