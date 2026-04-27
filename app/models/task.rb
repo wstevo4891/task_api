@@ -24,7 +24,7 @@ class Task < ApplicationRecord
 
   scope :overdue, -> { active.where("due_date < ?", Time.current) }
 
-  scope :due_soon, -> { active.where(due_date: Time.current..3.days.from.now) }
+  scope :due_soon, -> { active.where(due_date: Time.current..3.days.from_now) }
 
   scope :by_priority, -> { order(priority: :desc) }
 end
