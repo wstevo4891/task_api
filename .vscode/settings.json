@@ -1,0 +1,11 @@
+{
+  "editor.tabSize": 2,
+  "[ruby]": {
+    "editor.defaultFormatter": "rubocop.vscode-rubocop",
+    "editor.formatOnSave": true,
+  },
+  "rubocop.mode": "enableViaGemfileOrMissingGemfile",
+  "ruby.rubocop.configFilePath": "/Users/ericstephenson/Documents/projects/ruby/task_api/.rubocop.yml",
+  "ruby.rubocop.executePath": "/Users/ericstephenson/.rubies/ruby-3.3.5/bin/",
+  "ruby.rubocop.useBundler": true
+}
