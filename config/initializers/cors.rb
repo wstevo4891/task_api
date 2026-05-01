@@ -6,13 +6,30 @@
 # Read more: https://github.com/cyu/rack-cors
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
-  allow do
-    origins ENV.fetch("CORS_ORIGINS", "*").split(",")
+  ##
+  # Example
+  # ========
+  # allow do
+  #   origins ENV.fetch("CORS_ORIGINS", "*").split(",")
 
-    resource "*",
-      headers: :any,
+  #   resource "*",
+  #     headers: :any,
+  #     methods: [ :get, :post, :put, :patch, :delete, :options, :head ],
+  #     expose: [ "Authorization" ],
+  #     max_age: 600
+  # end
+
+  allow do
+    origins "http://localhost:3000",
+            "http://localhost:4000",
+            "https://tasky.com",
+            /\Ahttps:\/\/deploy-preview-\d{1,4}--tasky\.app\z/
+
+    resource "/api/v1/*",
       methods: [ :get, :post, :put, :patch, :delete, :options, :head ],
-      expose: [ "Authorization" ],
-      max_age: 600
+      headers: "x-domain-token",
+      expose: [ "Authorization", "Tasky-Response-Header" ],
+      max_age: 600,
+      credentials: true
   end
 end
