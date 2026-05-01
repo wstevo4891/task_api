@@ -1,24 +1,7 @@
 # README
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+This is an example application demonstrating how to set up a secure REST API in Rails 8.
 
-Things you may want to cover:
+The application uses rack-cors to set CORS configuration and rack-attack for rate limiting.
 
-* Ruby version
-
-* System dependencies
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+See specs for how to test the API endpoints and CORS configuration.
