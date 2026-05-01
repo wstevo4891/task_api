@@ -4,4 +4,4 @@ This is an example application demonstrating how to set up a secure REST API in 
 
 The application uses rack-cors to set CORS configuration and rack-attack for rate limiting.
 
-See specs for how to test the API endpoints and CORS configuration.
+See specs for examples of how to test the API endpoints, CORS policy and rate limiting.
