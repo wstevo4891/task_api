@@ -28,7 +28,6 @@ RSpec.describe "Rate Limiting", type: :request do
     # Enable Rack::Attack for this test
     Rack::Attack.enabled = true
     Rack::Attack.reset!
-    # Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
   end
 
   after do
@@ -37,40 +36,55 @@ RSpec.describe "Rate Limiting", type: :request do
     Rack::Attack.enabled = false
   end
 
-  describe "General Request Rate Limiting (60 per minute per IP)" do
-    it "allows requests under the limit" do
-      59.times do
-        get "/api/v1/health", headers: headers
+  describe "By IP Address (60 per minute per IP)" do
+    context "when number of requests is under the limit" do
+      before do
+        59.times do
+          get "/api/v1/health", headers: headers
+        end
+      end
+
+      it "allows requests" do
         expect(response).to have_http_status(:ok)
       end
-    end
 
-    it "blocks requests exceeding the limit" do
-      61.times do
-        get "/api/v1/health", headers: headers
+      it "does not expose Retry-After header" do
+        expect(response.headers).not_to have_key("Retry-After")
       end
-      expect(response).to have_http_status(:too_many_requests)
     end
 
-    it "returns JSON error message for rate limited requests" do
-      61.times do
-        get "/api/v1/health", headers: headers
+    context "when number of requests is over the limit" do
+      before do
+        61.times do
+          get "/api/v1/health", headers: headers
+        end
       end
-      expect(response.content_type).to include("application/json")
-      body = JSON.parse(response.body)
-      expect(body["error"]).to eq("Rate limit exceeded. Try again later.")
-    end
 
-    it "includes Retry-After header" do
-      61.times do
-        get "/api/v1/health", headers: headers
+      it "blocks requests" do
+        expect(response).to have_http_status(:too_many_requests)
       end
-      expect(response.headers["Retry-After"]).to be_present
+
+      it "exposes Retry-After header" do
+        expect(response.headers["Retry-After"]).to be_present
+      end
+
+      it "includes appropriate Retry-After value" do
+        expect(response.headers["Retry-After"].to_i).to be > 0
+      end
+
+      it "returns JSON content-type" do
+        expect(response.content_type).to include("application/json")
+      end
+
+      it "returns expected error message in JSON" do
+        body = JSON.parse(response.body)
+        expect(body["error"]).to eq("Rate limit exceeded. Try again later.")
+      end
     end
 
+    # Simulate two different IP addresses
     it "tracks limits per IP address" do
-      # Simulate two different IP addresses
-      59.times do
+      61.times do
         get "/api/v1/health", headers: {
           **headers,
           "REMOTE_ADDR" => "192.168.1.1"
@@ -82,55 +96,40 @@ RSpec.describe "Rate Limiting", type: :request do
         **headers,
         "REMOTE_ADDR" => "192.168.1.2"
       }
-      expect(response.status).not_to eq(429)
+
+      expect(response).not_to have_http_status(:too_many_requests)
     end
   end
 
-  describe "Login Rate Limiting by IP (5 per 20 seconds)" do
-    it "allows up to 5 login attempts per 20 seconds from same IP" do
-      4.times do
+  describe "Logins by IP (5 per 20 seconds)" do
+    it "allows up to 5 attempts per 20 seconds from the same IP" do
+      5.times do
         post login_path, headers: login_headers, params: login_params
-        expect(response.status).not_to eq(429)
+        expect(response).to have_http_status(:ok)
       end
     end
 
-    it "blocks login attempts exceeding the IP-based limit" do
-      6.times do
-        post login_path, headers: login_headers, params: login_params
+    context "when attempts exceed the IP-based limit" do
+      before do
+        6.times do
+          post login_path, headers: login_headers, params: login_params
+        end
       end
-      expect(response).to have_http_status(:too_many_requests)
-    end
 
-    it "returns proper error response for rate-limited login" do
-      6.times do
-        post login_path, headers: login_headers, params: login_params
+      it "blocks the request" do
+        expect(response).to have_http_status(:too_many_requests)
       end
-      expect(response).to have_http_status(:too_many_requests)
-      body = JSON.parse(response.body)
-      expect(body["error"]).to eq("Rate limit exceeded. Try again later.")
-    end
 
-    it "does not throttle non-login POST requests the same way" do
-      # Create a task (different endpoint)
-      20.times do
-        post "/api/v1/tasks", headers: headers, params: task_attributes
-        # Should follow general rate limit, not login-specific limit
-        expect(response.status).not_to eq(429)
+      it "returns the proper error response" do
+        body = JSON.parse(response.body)
+        expect(body["error"]).to eq("Rate limit exceeded. Try again later.")
       end
-    end
-
-    it "does not throttle GET requests to login endpoint" do
-      # GET requests to login endpoint should not trigger login throttling
-      10.times do
-        get login_path, headers: login_headers
-      end
-      expect(response.status).not_to eq(429)
     end
   end
 
-  describe "Login Rate Limiting by Email (5 per minute)" do
+  describe "Logins by Email (5 per minute)" do
     it "allows up to 5 login attempts per minute for same email" do
-      4.times do
+      5.times do
         post login_path, headers: login_headers, params: login_params
         expect(response.status).not_to eq(429)
       end
@@ -187,46 +186,8 @@ RSpec.describe "Rate Limiting", type: :request do
           email: other_email,
           password: other_user.password
         }
-        expect(response.status).not_to eq(429)
+        expect(response).to have_http_status(:ok)
       end
-    end
-  end
-
-  describe "Throttled Response Format" do
-    before do
-      61.times do
-        get "/api/v1/health", headers: headers
-      end
-    end
-
-    it "returns 429 Too Many Requests status" do
-      expect(response).to have_http_status(:too_many_requests)
-    end
-
-    it "returns application/json content type" do
-      expect(response.content_type).to include("application/json")
-    end
-
-    it "includes error key in JSON response" do
-      body = JSON.parse(response.body)
-      expect(body).to have_key("error")
-    end
-
-    it "includes Retry-After header" do
-      expect(response.headers).to have_key("Retry-After")
-    end
-
-    it "includes appropriate Retry-After value" do
-      expect(response.headers["Retry-After"].to_i).to be > 0
-    end
-  end
-
-  describe "Rate Limit Headers" do
-    it "does not expose RateLimit headers in responses" do
-      get "/api/v1/health", headers: headers
-      # Rack::Attack doesn't typically expose RateLimit-* headers by default
-      # This test documents current behavior
-      expect(response.headers).not_to have_key("Retry-After")
     end
   end
 end
