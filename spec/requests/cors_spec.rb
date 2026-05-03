@@ -2,7 +2,6 @@ require "rails_helper"
 
 RSpec.describe "CORS", type: :request do
   let(:api_path) { "/api/v1/tasks" }
-  let(:deploy_preview_origin) { "https://deploy-preview-1234--tasky.app" }
   let(:disallowed_origin) { "https://evil.com" }
   let(:user) { create(:user) }
   let(:token) { JsonWebToken.encode(user_id: user.id) }
@@ -51,6 +50,17 @@ RSpec.describe "CORS", type: :request do
           end
         end
 
+        describe "X-Domain-Token header" do
+          it "is allowed" do
+            get api_path, headers: {
+              "Origin" => origin,
+              "Authorization" => "Bearer #{token}",
+              "X-Domain-Token" => "test-token"
+            }
+            expect(response).to have_http_status(:ok)
+          end
+        end
+
         describe "OPTIONS request" do
           before do
             options api_path, headers: {
@@ -72,11 +82,14 @@ RSpec.describe "CORS", type: :request do
   end
 
   describe "Deploy Preview Origins" do
-    it "allows deploy-preview origins matching the pattern" do
+    it "allows origins matching the pattern" do
+      deploy_preview_origin = "https://deploy-preview-1234--tasky.app"
+
       get api_path, headers: {
         "Origin" => deploy_preview_origin,
         "Authorization" => "Bearer #{token}"
       }
+
       expect(allow_orgin_header).to eq(deploy_preview_origin)
     end
 
@@ -120,11 +133,11 @@ RSpec.describe "CORS", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    it "does not return Access-Control-Allow-Origin header for unauthorized origins" do
+    it "does not exposd Access-Control-Allow-Origin header" do
       expect(allow_orgin_header).to be_nil
     end
 
-    it "does not expose headers for unauthorized origins" do
+    it "does not expose Access-Control-Expose-Headers header" do
       expect(expose_header).to be_nil
     end
   end
@@ -234,7 +247,7 @@ RSpec.describe "CORS", type: :request do
         expect(response).to have_http_status(:ok)
       end
 
-      it "returns Access-Control-Allow-Methods" do
+      it "exposes Access-Control-Allow-Methods header with requested method" do
         expect(response.headers["Access-Control-Allow-Methods"]).to include("GET")
       end
     end
@@ -254,20 +267,9 @@ RSpec.describe "CORS", type: :request do
         expect(response).to have_http_status(:ok)
       end
 
-      it "does not return CORS headers" do
+      it "does not expose Access-Control-Allow-Origin header" do
         expect(allow_orgin_header).to be_nil
       end
-    end
-  end
-
-  describe "Headers Configuration" do
-    it "allows x-domain-token header" do
-      get api_path, headers: {
-        "Origin" => allowed_origins.first,
-        "Authorization" => "Bearer #{token}",
-        "X-Domain-Token" => "test-token"
-      }
-      expect(response.status).not_to eq(403)
     end
   end
 
