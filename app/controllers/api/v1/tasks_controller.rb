@@ -6,7 +6,7 @@ module Api
 
       # GET /api/v1/tasks
       def index
-        results = TasksQuery.new(params, current_user.tasks)
+        results = TasksQuery.new(query_params, current_user.tasks)
 
         render json: {
           tasks: results.tasks.map { |t| TaskSerializer.new(t).as_json },
@@ -53,6 +53,10 @@ module Api
 
       def set_task
         @task = current_user.tasks.find(params[:id])
+      end
+
+      def query_params
+        params.permit(:page, :per_page, :status, :priority, :due_soon, :overdue, :sort)
       end
 
       def task_params
