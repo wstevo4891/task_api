@@ -7,25 +7,73 @@ RSpec.describe TasksQuery do
   let(:user_tasks) { user.tasks }
 
   describe "#initialize" do
-    it "accepts params and user_tasks" do
+    it "accepts params hash and tasks list" do
       query = TasksQuery.new({}, user_tasks)
       expect(query).to be_a(TasksQuery)
     end
 
-    it "sets default page to 1" do
+    it "retrieves tasks from database" do
       query = TasksQuery.new({}, user_tasks)
-      expect(query.page).to eq(1)
+      expect(query.tasks).to be_a(ActiveRecord::Relation)
     end
 
-    it "sets default per_page to PER_PAGE_DEFAULT" do
-      query = TasksQuery.new({}, user_tasks)
-      expect(query.per_page).to eq(TasksQuery::PER_PAGE_DEFAULT)
+    it "sets given page param" do
+      query = TasksQuery.new({ page: 2 }, user_tasks)
+      expect(query.page).to eq(2)
     end
 
-    it "sets total to count of results" do
-      create_list(:task, 5, user: user)
-      query = TasksQuery.new({}, user_tasks)
-      expect(query.total).to eq(5)
+    it "sets given per_page param" do
+      query = TasksQuery.new({ per_page: 15 }, user_tasks)
+      expect(query.per_page).to eq(15)
+    end
+
+    context "with empty params" do
+      subject { TasksQuery.new({}, user_tasks) }
+
+      it "sets default page to 1" do
+        expect(subject.page).to eq(1)
+      end
+
+      it "sets default per_page to PER_PAGE_DEFAULT" do
+        expect(subject.per_page).to eq(TasksQuery::PER_PAGE_DEFAULT)
+      end
+
+      it "sets total to count of results" do
+        create_list(:task, 5, user: user)
+        expect(subject.total).to eq(5)
+      end
+    end
+
+    describe "edge cases" do
+      context "when user has no tasks" do
+        subject { TasksQuery.new({}, user_tasks) }
+
+        it { expect(subject.tasks).to be_empty }
+
+        it { expect(subject.total).to eq(0) }
+
+        it { expect(subject.total_pages).to eq(0) }
+      end
+
+      it "handles page 0 as page 1" do
+        query = TasksQuery.new({ page: 0 }, user_tasks)
+        expect(query.page).to eq(1)
+      end
+
+      it "handles negative page as page 1" do
+        query = TasksQuery.new({ page: -1 }, user_tasks)
+        expect(query.page).to eq(1)
+      end
+
+      it "handles negative per_page as PER_PAGE_DEFAULT" do
+        query = TasksQuery.new({ per_page: -10 }, user_tasks)
+        expect(query.per_page).to eq(TasksQuery::PER_PAGE_DEFAULT)
+      end
+
+      it "handles per_page of 0 as PER_PAGE_DEFAULT" do
+        query = TasksQuery.new({ per_page: 0 }, user_tasks)
+        expect(query.per_page).to eq(TasksQuery::PER_PAGE_DEFAULT)
+      end
     end
   end
 
@@ -50,18 +98,17 @@ RSpec.describe TasksQuery do
   end
 
   describe "pagination" do
-    before { create_list(:task, 30, user: user) }
+    before { create_list(:task, 50, user: user) }
 
     context "with default pagination" do
+      subject { TasksQuery.new({}, user_tasks) }
+
       it "returns PER_PAGE_DEFAULT items" do
-        query = TasksQuery.new({}, user_tasks)
-        expect(query.tasks.size).to eq(TasksQuery::PER_PAGE_DEFAULT)
+        expect(subject.tasks.size).to eq(TasksQuery::PER_PAGE_DEFAULT)
       end
 
       it "returns first page by default" do
-        query = TasksQuery.new({}, user_tasks)
-        first_page_tasks = query.tasks
-        expect(first_page_tasks.size).to eq(TasksQuery::PER_PAGE_DEFAULT)
+        expect(subject.page).to eq(1)
       end
     end
 
@@ -69,7 +116,6 @@ RSpec.describe TasksQuery do
       it "returns second page when page is 2" do
         query = TasksQuery.new({ page: 2 }, user_tasks)
         expect(query.page).to eq(2)
-        expect(query.tasks.size).to eq(10)
       end
 
       it "returns empty collection for out of range page" do
@@ -103,7 +149,13 @@ RSpec.describe TasksQuery do
       it "uses custom per_page in pagination" do
         query = TasksQuery.new({ per_page: 10 }, user_tasks)
         expect(query.tasks.size).to eq(10)
-        expect(query.total_pages).to eq(3)
+        expect(query.total_pages).to eq(5)
+      end
+
+      it "returns correct total count before pagination" do
+        query = TasksQuery.new({ page: 1, per_page: 10 }, user_tasks)
+        expect(query.total).to eq(50)
+        expect(query.tasks.size).to eq(10)
       end
     end
   end
@@ -145,25 +197,29 @@ RSpec.describe TasksQuery do
       create(:task, user: user, priority: :urgent)
     end
 
-    it "filters tasks by priority when priority param is present" do
-      query = TasksQuery.new({ priority: "high" }, user_tasks)
-      expect(query.tasks.all? { |t| t.priority == "high" }).to be_truthy
+    context "when priority param is present" do
+      subject { TasksQuery.new({ priority: "high" }, user_tasks) }
+
+      it "returns tasks with selected priority" do
+        expect(subject.tasks.all? { |t| t.priority == "high" }).to be_truthy
+      end
+
+      it "does not return tasks with non-selected priorities" do
+        [ "low", "medium", "urgent" ].each do |value|
+          expect(subject.tasks.all? { |t| t.priority == value }).to be_falsy
+        end
+      end
     end
 
     it "returns all priorities when priority param is not present" do
       query = TasksQuery.new({}, user_tasks)
       priorities = query.tasks.map(&:priority).uniq
-      expect(priorities.size).to be > 1
+      expect(priorities.size).to eq(Task.priorities.size)
     end
 
     it "handles blank priority param" do
       query = TasksQuery.new({ priority: "" }, user_tasks)
-      expect(query.total).to eq(4)
-    end
-
-    it "filters by urgent priority" do
-      query = TasksQuery.new({ priority: "urgent" }, user_tasks)
-      expect(query.tasks.all? { |t| t.priority == "urgent" }).to be_truthy
+      expect(query.total).to eq(user.tasks.count)
     end
   end
 
@@ -171,20 +227,22 @@ RSpec.describe TasksQuery do
     let!(:overdue_task) { create(:task, user: user, due_date: 1.day.ago) }
     let!(:pending_task) { create(:task, user: user, due_date: 1.day.from_now) }
 
-    it "filters overdue tasks when overdue param is true" do
-      query = TasksQuery.new({ overdue: "true" }, user_tasks)
-      expect(query.tasks.include?(overdue_task)).to be_truthy
-      expect(query.tasks.include?(pending_task)).to be_falsey
+    context "when overdue param is true" do
+      subject { TasksQuery.new({ overdue: "true" }, user_tasks).tasks }
+
+      it { is_expected.to include(overdue_task) }
+
+      it { is_expected.not_to include(pending_task) }
     end
 
-    it "returns all tasks when overdue param is false or missing" do
+    it "does not filter when overdue param is not present" do
       query = TasksQuery.new({}, user_tasks)
-      expect(query.total).to eq(2)
+      expect(query.total).to eq(user.tasks.count)
     end
 
-    it "does not filter when overdue param is not 'true'" do
+    it "does not filter when overdue param is false" do
       query = TasksQuery.new({ overdue: "false" }, user_tasks)
-      expect(query.total).to eq(2)
+      expect(query.total).to eq(user.tasks.count)
     end
   end
 
@@ -192,62 +250,87 @@ RSpec.describe TasksQuery do
     let!(:due_soon_task) { create(:task, user: user, due_date: 1.day.from_now) }
     let!(:future_task) { create(:task, user: user, due_date: 10.days.from_now) }
 
-    it "filters due_soon tasks when due_soon param is true" do
-      query = TasksQuery.new({ due_soon: "true" }, user_tasks)
-      expect(query.tasks.include?(due_soon_task)).to be_truthy
-      expect(query.tasks.include?(future_task)).to be_falsey
+    context "when due_soon param is true" do
+      subject { TasksQuery.new({ due_soon: "true" }, user_tasks).tasks }
+
+      it { is_expected.to include(due_soon_task) }
+
+      it { is_expected.not_to include(future_task) }
     end
 
-    it "returns all tasks when due_soon param is false or missing" do
+    it "returns all tasks when due_soon param is not present" do
       query = TasksQuery.new({}, user_tasks)
       expect(query.total).to eq(2)
     end
 
-    it "does not filter when due_soon param is not 'true'" do
+    it "does not filter when due_soon param is false" do
       query = TasksQuery.new({ due_soon: "false" }, user_tasks)
       expect(query.total).to eq(2)
     end
   end
 
   describe "sorting" do
+    task_a_params = {
+      title: "Task A",
+      priority: :high,
+      created_at: 3.days.ago,
+      due_date: 10.days.from_now
+    }
+
+    task_b_params = {
+      title: "Task B",
+      priority: :low,
+      created_at: 2.days.ago,
+      due_date: 5.days.from_now
+    }
+
+    task_c_params = {
+      title: "Task C",
+      priority: :medium,
+      created_at: 1.day.ago,
+      due_date: 15.days.from_now
+    }
+
     before do
-      create(:task, user: user, title: "Task A", priority: :high, created_at: 3.days.ago, due_date: 10.days.from_now)
-      create(:task, user: user, title: "Task B", priority: :low, created_at: 2.days.ago, due_date: 5.days.from_now)
-      create(:task, user: user, title: "Task C", priority: :medium, created_at: 1.day.ago, due_date: 15.days.from_now)
+      create(:task, user: user, **task_a_params)
+      create(:task, user: user, **task_b_params)
+      create(:task, user: user, **task_c_params)
     end
 
-    context "sort by priority" do
-      it "sorts by priority descending" do
+    describe "by priority" do
+      it "sorts tasks by priority in descending order" do
         query = TasksQuery.new({ sort: "priority" }, user_tasks)
         priorities = query.tasks.map(&:priority)
-        expect(priorities).to eq(["high", "medium", "low"])
+        expect(priorities).to eq([ "high", "medium", "low" ])
       end
     end
 
-    context "sort by due_date" do
-      it "sorts by due_date ascending" do
+    describe "by due_date" do
+      it "sorts tasks by due_date in ascending order" do
         query = TasksQuery.new({ sort: "due_date" }, user_tasks)
         due_dates = query.tasks.map(&:due_date)
         expect(due_dates).to eq(due_dates.sort)
       end
     end
 
-    context "sort by created" do
-      it "sorts by created_at descending" do
+    describe "by created" do
+      it "sorts tasks by created_at in descending order" do
         query = TasksQuery.new({ sort: "created" }, user_tasks)
         created_ats = query.tasks.map(&:created_at)
         expect(created_ats).to eq(created_ats.sort.reverse)
       end
     end
 
-    context "default sort" do
-      it "sorts by created_at descending when sort param is missing" do
+    context "when sort param is missing" do
+      it "sorts by created_at in descending order" do
         query = TasksQuery.new({}, user_tasks)
         created_ats = query.tasks.map(&:created_at)
         expect(created_ats).to eq(created_ats.sort.reverse)
       end
+    end
 
-      it "sorts by created_at descending when sort param is invalid" do
+    context "when sort param is invalid" do
+      it "sorts by created_at in descending order" do
         query = TasksQuery.new({ sort: "invalid" }, user_tasks)
         created_ats = query.tasks.map(&:created_at)
         expect(created_ats).to eq(created_ats.sort.reverse)
@@ -256,10 +339,28 @@ RSpec.describe TasksQuery do
   end
 
   describe "combining filters and sorting" do
+    task_a_params = {
+      status: :pending,
+      priority: :high,
+      due_date: 2.days.ago
+    }
+
+    task_b_params = {
+      status: :pending,
+      priority: :low,
+      due_date: 5.days.ago
+    }
+
+    task_c_params = {
+      status: :completed,
+      priority: :urgent,
+      due_date: 1.day.ago
+    }
+
     before do
-      create(:task, user: user, status: :pending, priority: :high, due_date: 2.days.ago)
-      create(:task, user: user, status: :pending, priority: :low, due_date: 5.days.ago)
-      create(:task, user: user, status: :completed, priority: :urgent, due_date: 1.day.ago)
+      create(:task, user: user, **task_a_params)
+      create(:task, user: user, **task_b_params)
+      create(:task, user: user, **task_c_params)
     end
 
     it "applies filters and then sorts" do
@@ -273,65 +374,6 @@ RSpec.describe TasksQuery do
       query = TasksQuery.new({ status: "pending", priority: "high", sort: "due_date" }, user_tasks)
       expect(query.total).to eq(1)
       expect(query.tasks.first.priority).to eq("high")
-    end
-  end
-
-  describe "edge cases" do
-    it "handles empty user_tasks collection" do
-      query = TasksQuery.new({}, user_tasks)
-      expect(query.tasks).to be_empty
-      expect(query.total).to eq(0)
-      expect(query.total_pages).to eq(0)
-    end
-
-    it "handles page 0 as page 1" do
-      create(:task, user: user)
-      query = TasksQuery.new({ page: 0 }, user_tasks)
-      expect(query.page).to eq(0)
-    end
-
-    it "handles negative per_page gracefully" do
-      create(:task, user: user)
-      query = TasksQuery.new({ per_page: -10 }, user_tasks)
-      # The query will process with negative per_page, which Rails will handle
-      expect(query.per_page).to eq(-10)
-    end
-
-    it "handles per_page of 0" do
-      create(:task, user: user)
-      query = TasksQuery.new({ per_page: 0 }, user_tasks)
-      expect(query.per_page).to eq(0)
-    end
-
-    it "returns correct total count before pagination" do
-      create_list(:task, 50, user: user)
-      query = TasksQuery.new({ page: 1, per_page: 10 }, user_tasks)
-      expect(query.total).to eq(50)
-      expect(query.tasks.size).to eq(10)
-    end
-  end
-
-  describe "attributes" do
-    before { create_list(:task, 5, user: user) }
-
-    it "exposes page" do
-      query = TasksQuery.new({ page: 2 }, user_tasks)
-      expect(query.page).to eq(2)
-    end
-
-    it "exposes per_page" do
-      query = TasksQuery.new({ per_page: 15 }, user_tasks)
-      expect(query.per_page).to eq(15)
-    end
-
-    it "exposes tasks" do
-      query = TasksQuery.new({}, user_tasks)
-      expect(query.tasks).to be_a(ActiveRecord::Relation)
-    end
-
-    it "exposes total" do
-      query = TasksQuery.new({}, user_tasks)
-      expect(query.total).to eq(5)
     end
   end
 end

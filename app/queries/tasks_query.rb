@@ -3,13 +3,15 @@
 class TasksQuery
   PER_PAGE_DEFAULT = 20
   PER_PAGE_MAXIMUM = 100
+  True = "true"
 
   attr_reader :page, :per_page, :tasks, :total
 
   def initialize(params, user_tasks)
     @params = params
-    @page = (params[:page] || 1).to_i
+    @page = calc_page
     @per_page = calc_per_page
+    @page_offset = calc_page_offset
     @tasks = process_query(user_tasks)
   end
 
@@ -19,11 +21,25 @@ class TasksQuery
 
   private
 
-  attr_reader :params
+  attr_reader :params, :page_offset
+
+  def calc_page
+    page_param = params[:page].to_i
+    page_param <= 0 ? 1 : page_param
+  end
 
   def calc_per_page
-    current = (params[:per_page] || PER_PAGE_DEFAULT).to_i
-    [ current, PER_PAGE_MAXIMUM ].min
+    per_page_param = params[:per_page].to_i
+
+    if per_page_param <= 0
+      PER_PAGE_DEFAULT
+    else
+      [ per_page_param, PER_PAGE_MAXIMUM ].min
+    end
+  end
+
+  def calc_page_offset
+    (page - 1) * per_page
   end
 
   def process_query(user_tasks)
@@ -31,14 +47,14 @@ class TasksQuery
     user_tasks = apply_sorting(user_tasks)
     @total = user_tasks.count
 
-    user_tasks.offset((page - 1) * per_page).limit(per_page)
+    user_tasks.offset(page_offset).limit(per_page)
   end
 
   def apply_filters(user_tasks)
     user_tasks = user_tasks.where(status: params[:status]) if params[:status].present?
     user_tasks = user_tasks.where(priority: params[:priority]) if params[:priority].present?
-    user_tasks = user_tasks.overdue if params[:overdue] == "true"
-    user_tasks = user_tasks.due_soon if params[:due_soon] == "true"
+    user_tasks = user_tasks.overdue if params[:overdue] == True
+    user_tasks = user_tasks.due_soon if params[:due_soon] == True
     user_tasks
   end
 
