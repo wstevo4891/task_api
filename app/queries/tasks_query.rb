@@ -11,17 +11,18 @@ class TasksQuery
     @params = params
     @page = calc_page
     @per_page = calc_per_page
-    @page_offset = calc_page_offset
     @tasks = process_query(user_tasks)
   end
 
   def total_pages
+    return 1 if total.zero?
+
     (total.to_f / per_page).ceil
   end
 
   private
 
-  attr_reader :params, :page_offset
+  attr_reader :params
 
   def calc_page
     page_param = params[:page].to_i
@@ -38,15 +39,10 @@ class TasksQuery
     end
   end
 
-  def calc_page_offset
-    (page - 1) * per_page
-  end
-
   def process_query(user_tasks)
     user_tasks = apply_filters(user_tasks)
     user_tasks = apply_sorting(user_tasks)
     @total = user_tasks.count
-
     user_tasks.offset(page_offset).limit(per_page)
   end
 
@@ -69,6 +65,10 @@ class TasksQuery
     else
       user_tasks.order(created_at: :desc)
     end
+  end
+
+  def page_offset
+    (page - 1) * per_page
   end
 end
 
