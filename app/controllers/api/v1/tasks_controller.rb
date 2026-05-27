@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Api
   module V1
     class TasksController < ApplicationController
@@ -6,34 +8,25 @@ module Api
 
       # GET /api/v1/tasks
       def index
-        results = TasksQuery.new(query_params, current_user.tasks)
-
-        render json: {
-          tasks: results.tasks.map { |t| TaskSerializer.new(t).as_json },
-          pagination: {
-            current_page: results.page,
-            per_page: results.per_page,
-            total_pages: results.total_pages,
-            total_count: results.total
-          }
-        }
+        result = TasksApi.user_tasks(current_user, query_params_beta)
+        render json: result, status: :ok
       end
 
       # GET /api/v1/tasks/:id
       def show
-        render json: { task: TaskSerializer.new(@task).as_json }
+        render json: { task: TaskSerializer.call(@task) }
       end
 
       # POST /api/v1/tasks
       def create
-        task = current_user.tasks.create!(task_params)
-        render json: { task: TaskSerializer.new(task).as_json }, status: :created
+        @task = current_user.tasks.create!(task_params)
+        render json: { task: TaskSerializer.call(@task) }, status: :created
       end
 
       # PATCH/PUT /api/v1/tasks/:id
       def update
         @task.update!(task_params)
-        render json: { task: TaskSerializer.new(@task).as_json }
+        render json: { task: TaskSerializer.call(@task) }
       end
 
       # DELETE /api/v1/tasks/:id
@@ -46,7 +39,7 @@ module Api
       def complete
         set_task
         @task.update!(status: :completed)
-        render json: { task: TaskSerializer.new(@task).as_json }
+        render json: { task: TaskSerializer.call(@task) }
       end
 
       private
@@ -57,6 +50,13 @@ module Api
 
       def query_params
         params.permit(:page, :per_page, :status, :priority, :due_soon, :overdue, :sort)
+      end
+
+      def query_params_beta
+        {
+          pagination: params.permit(:page, :per_page),
+          query: params.permit(:status, :priority, :due_soon, :overdue, :sort)
+        }
       end
 
       def task_params
