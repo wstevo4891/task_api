@@ -1,4 +1,8 @@
 class TaskSerializer
+  def self.call(task)
+    new(task).as_json
+  end
+
   def initialize(task)
     @task = task
   end
