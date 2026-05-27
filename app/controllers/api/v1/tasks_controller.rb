@@ -8,7 +8,7 @@ module Api
 
       # GET /api/v1/tasks
       def index
-        result = TasksApi.user_tasks(current_user, query_params_beta)
+        result = TasksApi.user_tasks(current_user, query_params)
         render json: result, status: :ok
       end
 
@@ -49,10 +49,6 @@ module Api
       end
 
       def query_params
-        params.permit(:page, :per_page, :status, :priority, :due_soon, :overdue, :sort)
-      end
-
-      def query_params_beta
         {
           pagination: params.permit(:page, :per_page),
           query: params.permit(:status, :priority, :due_soon, :overdue, :sort)
