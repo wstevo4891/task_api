@@ -2,6 +2,7 @@
 
 module Api
   module V1
+    # ToDo: Add a spec for this module
     module TasksApi
       def self.user_tasks(user, params)
         paginator = Paginator.new(params[:pagination])

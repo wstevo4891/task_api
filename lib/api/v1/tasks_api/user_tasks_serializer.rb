@@ -3,6 +3,7 @@
 module Api
   module V1
     module TasksApi
+      # ToDo: Add a spec for this class
       class UserTasksSerializer
         def initialize(paginator, data, serializer = TaskSerializer)
           @paginator = paginator

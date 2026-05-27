@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# ToDo: Delete this class
 class TasksQuery
   PER_PAGE_DEFAULT = 20
   PER_PAGE_MAXIMUM = 100

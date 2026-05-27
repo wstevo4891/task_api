@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# ToDo: Add a spec for this class
 class Paginator
   PER_PAGE_DEFAULT = 20
   PER_PAGE_MAXIMUM = 100

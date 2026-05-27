@@ -2,6 +2,7 @@
 
 require "rails_helper"
 
+# ToDo: Change this spec to test UserTasksQuery
 RSpec.describe TasksQuery do
   let(:user) { create(:user) }
   let(:user_tasks) { user.tasks }
