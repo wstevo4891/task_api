@@ -49,4 +49,3 @@ end
 puts "Sample users and tasks are in place."
 
 puts "Finished seeding."
-
