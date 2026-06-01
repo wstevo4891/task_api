@@ -6,10 +6,16 @@ module Api
     module TasksApi
       def self.user_tasks(user, params)
         paginator = Paginator.new(params[:pagination])
-        query = UserTasksQuery.new(params[:query], user.tasks)
-        results = query.call(paginator.page_offset, paginator.per_page)
+        cache = UserTasksCache.new(user.id, params[:query], paginator)
 
-        UserTasksSerializer.new(paginator, results).as_json
+        Rails.cache.fetch(cache.key, expires_in: 1.hour) do
+          cache.log_message
+
+          query = UserTasksQuery.new(params[:query], user.tasks)
+          results = query.call(paginator.page_offset, paginator.per_page)
+
+          UserTasksSerializer.new(paginator, results).as_json
+        end
       end
     end
   end
