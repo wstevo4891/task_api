@@ -14,8 +14,8 @@ module Api
 
         def as_json
           {
-            tasks: task_data,
-            pagination: pagination_data
+            tasks: task_json,
+            pagination: pagination_json(total)
           }
         end
 
@@ -23,19 +23,10 @@ module Api
 
         attr_reader :paginator, :total, :tasks, :serializer
 
-        delegate :page, :per_page, :page_offset, :total_pages, to: :paginator
+        delegate :pagination_json, to: :paginator
 
-        def task_data
+        def task_json
           tasks.map { |task| serializer.call(task) }
-        end
-
-        def pagination_data
-          {
-            current_page: page,
-            per_page: per_page,
-            total_pages: total_pages(total),
-            total_count: total
-          }
         end
       end
     end
