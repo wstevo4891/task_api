@@ -4,8 +4,6 @@ module Api
   module V1
     module TasksApi
       class UserTasksCache
-        MESSAGE = "--- Cache Miss! Fetching data for user tasks ---"
-
         attr_reader :key
 
         def initialize(user_id, params, paginator)
@@ -16,9 +14,11 @@ module Api
           @key = generate_cache_key
         end
 
-        def log_message
-          puts MESSAGE
-          Rails.logger.info MESSAGE
+        def fetch(&block)
+          Rails.cache.fetch(key, expires_in: 1.hour) do
+            Rails.logger.info "--- Cache Miss! Fetching data for user tasks ---"
+            block.call
+          end
         end
 
         private
@@ -33,7 +33,7 @@ module Api
           cache_key += "due_soon/" if params[:due_soon] == "true"
           cache_key += "#{params[:sort]}/" if params[:sort].present?
 
-          "#{cache_key}/per_page=#{per_page}/page=#{page}"
+          "#{cache_key}per_page=#{per_page}/page=#{page}"
         end
       end
     end
