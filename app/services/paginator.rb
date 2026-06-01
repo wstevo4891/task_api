@@ -20,6 +20,15 @@ class Paginator
     (total_results.to_f / per_page).ceil
   end
 
+  def pagination_json(total)
+    {
+      current_page: page,
+      per_page: per_page,
+      total_pages: total_pages(total),
+      total_count: total
+    }
+  end
+
   private
 
   attr_reader :params
