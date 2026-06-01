@@ -130,4 +130,50 @@ RSpec.describe Paginator do
       end
     end
   end
+
+  describe "#pagination_json" do
+    subject { Paginator.new({ page: 2, per_page: 10 }) }
+
+    it "returns a hash with current_page" do
+      expect(subject.pagination_json(50)[:current_page]).to eq(2)
+    end
+
+    it "returns a hash with per_page" do
+      expect(subject.pagination_json(50)[:per_page]).to eq(10)
+    end
+
+    it "returns a hash with total_count equal to the given total" do
+      expect(subject.pagination_json(50)[:total_count]).to eq(50)
+    end
+
+    it "returns a hash with total_pages derived from total and per_page" do
+      expect(subject.pagination_json(50)[:total_pages]).to eq(5)
+    end
+
+    it "rounds total_pages up for a partial last page" do
+      expect(subject.pagination_json(51)[:total_pages]).to eq(6)
+    end
+
+    context "when total is nil" do
+      it "returns total_count of nil" do
+        expect(subject.pagination_json(nil)[:total_count]).to be_nil
+      end
+
+      it "returns total_pages of 1" do
+        expect(subject.pagination_json(nil)[:total_pages]).to eq(1)
+      end
+    end
+
+    context "on page 1 with default per_page" do
+      subject { Paginator.new({}) }
+
+      it "returns current_page of 1" do
+        expect(subject.pagination_json(10)[:current_page]).to eq(1)
+      end
+
+      it "returns per_page equal to PER_PAGE_DEFAULT" do
+        expect(subject.pagination_json(10)[:per_page]).to eq(Paginator::PER_PAGE_DEFAULT)
+      end
+    end
+  end
 end
