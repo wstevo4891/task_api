@@ -3,7 +3,9 @@ module ExceptionHandler
 
   # Custom exception classes
   class AuthenticationError < StandardError; end
+
   class ExpiredToken < StandardError; end
+
   class InvalidToken < StandardError; end
 
   included do

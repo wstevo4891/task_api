@@ -139,19 +139,19 @@ RSpec.describe Task, type: :model do
     let(:user) { create(:user) }
 
     let!(:pending_task) do
-      create(:task, user: user, status: :pending, due_date: 5.days.from_now)
+      create(:task, :pending, user: user, due_date: 5.days.from_now)
     end
 
     let!(:in_progress_task) do
-      create(:task, user: user, status: :in_progress, due_date: 2.days.from_now)
+      create(:task, :in_progress, user: user, due_date: 2.days.from_now)
     end
 
     let!(:completed_task) do
-      create(:task, user: user, status: :completed, due_date: 1.day.ago)
+      create(:task, :completed, user: user, due_date: 1.day.ago)
     end
 
     let!(:cancelled_task) do
-      create(:task, user: user, status: :cancelled, due_date: 3.days.from_now)
+      create(:task, :cancelled, user: user, due_date: 3.days.from_now)
     end
 
     describe ".active" do
@@ -164,11 +164,11 @@ RSpec.describe Task, type: :model do
 
     describe ".overdue" do
       let!(:overdue_task) do
-        create(:task, user: user, status: :pending, due_date: 1.day.ago)
+        create(:task, :pending, user: user, due_date: 1.day.ago)
       end
 
       let!(:due_soon_task) do
-        create(:task, user: user, status: :in_progress, due_date: 1.day.from_now)
+        create(:task, :in_progress, user: user, due_date: 1.day.from_now)
       end
 
       subject { Task.overdue }
@@ -182,15 +182,15 @@ RSpec.describe Task, type: :model do
 
     describe ".due_soon" do
       let!(:due_in_1_day) do
-        create(:task, user: user, status: :pending, due_date: 1.day.from_now)
+        create(:task, :pending, user: user, due_date: 1.day.from_now)
       end
 
       let!(:due_in_2_days) do
-        create(:task, user: user, status: :in_progress, due_date: 2.days.from_now)
+        create(:task, :in_progress, user: user, due_date: 2.days.from_now)
       end
 
       let!(:due_in_4_days) do
-        create(:task, user: user, status: :pending, due_date: 4.days.from_now)
+        create(:task, :pending, user: user, due_date: 4.days.from_now)
       end
 
       subject { Task.due_soon }
@@ -205,10 +205,10 @@ RSpec.describe Task, type: :model do
     describe ".by_priority" do
       before { DatabaseCleaner.clean }
 
-      let!(:low_priority) { create(:task, user: user, priority: :low) }
-      let!(:medium_priority) { create(:task, user: user, priority: :medium) }
-      let!(:high_priority) { create(:task, user: user, priority: :high) }
-      let!(:urgent_priority) { create(:task, user: user, priority: :urgent) }
+      let!(:low_priority) { create(:task, :low_priority, user: user) }
+      let!(:medium_priority) { create(:task, :medium_priority, user: user) }
+      let!(:high_priority) { create(:task, :high_priority, user: user) }
+      let!(:urgent_priority) { create(:task, :urgent_priority, user: user) }
 
       it "returns tasks ordered by priority in descending order" do
         result = Task.by_priority
